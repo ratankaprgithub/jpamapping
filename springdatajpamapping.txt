@@ -1,0 +1,333 @@
+one to many mapping:-
+====================
+
+unidirectional:-
+----------------
+
+from parent to child navigation:-(Dept to Emp)
+
+
+
+step 1:-
+
+create table in one to many relation with PK and FK
+
+ex:-
+
+
+create table dept
+(
+did int primary key,
+dname varchar(12),
+location varchar(12)
+)
+
+
+create table emp
+(
+eid int primary key,
+name varchar(12),
+salary int,
+deptid int,foreign key(deptid) references dept(did)
+)
+
+
+step2:-
+
+--create a Child entity first without taking the variable of FK column with getters and setters
+
+
+ex:-
+
+
+Employee.java:-
+--------------
+
+
+@Entity
+@Table(name = "emp")
+public class Employee implements Serializable{
+
+	@Id
+	private int eid;
+	private String name;
+	private int salary;
+
+//getters and setters
+	
+}	
+
+
+step 3:- 
+
+--create the parent Entity class by taking one extra List type variable
+
+--and annotate this variable by using @OneToMany annotation and specify the Child class name. 
+
+--by using @JoinColumn anno we specify the FK related details to this variable.
+
+ex:-
+
+
+@Entity
+@Table(name = "dept")
+public class Dept implements Serializable{
+
+	@Id
+	private int did;
+	private String dname;
+	private String location;
+	
+	@OneToMany(targetEntity = Employee.class,cascade = CascadeType.ALL)
+	@JoinColumn(name = "deptid" ,referencedColumnName = "did")
+	private List<Employee> emps;
+
+//getters and setters
+	
+}
+
+
+step 4:- create a CrudRepository interface for the Parent Entity
+
+ex:-
+
+DeptDao.java
+-------------
+
+public interface DeptDao extends CrudRepository<Dept,Integer>{
+	
+}
+
+
+step 5:- 
+
+Perform the Crud operation
+
+
+--inside the controller method add a new Dept having multiple employee
+
+ex1:-
+	@Autowire
+	DaptDao ddo;
+
+
+		Employee emp1=new Employee(101, "Ram1", 8700);
+		Employee emp2=new Employee(102, "Ram2", 8800);
+		Employee emp3=new Employee(103, "Ram3", 8800);
+		
+		
+		List<Employee> list=new ArrayList<Employee>();
+		
+		list.add(emp1);
+		list.add(emp2);
+		list.add(emp3);
+		
+		
+		Dept d=new Dept(1001, "Account", "kolkata", list);
+		
+		ddao.save(d);
+		
+		System.out.println("done");
+		
+		
+
+ex2:- gets the details of all the Employee who works on a given dept:-
+
+
+
+
+		 Optional<Dept> opt=ddao.findById(1001);
+		
+		 Dept d=opt.get();
+		 
+		 d.getEmps().forEach(e->{
+			 System.out.println(e);
+		 });
+		 
+
+
+ex3:- get the all employee names,who works in a perticular dept by joining:-
+
+
+
+
+
+
+@Query("select e.name from Dept d join  d.emps e where d.did=:did")
+public List<String> getAllEmpNames(int did);
+	
+
+--here we can not use d.did=e.deptid,becoz in the Employee class there is no any field deptid is defined so we get the reff of deptid from d.emps
+
+
+
+ex4:- get all the employee name along with thier dept name whose salary is less than 8000
+
+
+@Query("select e.name,d.dname from Dept d join d.emps e where e.salary>:sal")
+public List<String[]> getAllEmpNames(int sal);
+	
+	
+
+in request handling method:-
+
+		List<String[]> names=ddao.getAllEmpNames(8700);
+		 
+		names.forEach(str->{
+			
+			System.out.println(str[0]+"======"+str[1]);
+			
+		});
+
+
+
+
+
+
+one to many bidirectional:-
+===========================
+
+
+--here we want to navigate from child to parent as well.
+
+
+so take a variable of Parent Entity inside the Child Entity. and generate the setter and getters
+
+ex:-
+
+
+Employee.java:-
+--------------
+
+
+private Dept dept;
+
+
+
+--here to get support the bydirectional navigation we need to do some modification in Parent Entity class also.
+
+
+ex:-
+
+
+first define the Child Entity with @ManyToOne annotation:-
+
+Employee.java:-
+--------------
+
+
+
+@Entity
+@Table(name = "emp")
+public class Employee implements Serializable{
+
+	@Id
+	private int eid;
+	private String name;
+	private int salary;
+	
+	@ManyToOne
+	@JoinColumn(name="deptid" ,referencedColumnName = "did")
+	private Dept dept;
+	
+}
+
+then redefine the Parent Entity class 
+
+ex:-
+
+
+Dept.java:-
+----------
+
+
+@Entity
+@Table(name = "dept")
+public class Dept implements Serializable{
+
+	@Id
+	private int did;
+	private String dname;
+	private String location;
+	
+	@OneToMany(mappedBy = "dept",cascade = CascadeType.ALL)
+	private List<Employee> emps;
+	
+}
+
+
+--here mappedBy point to the variable name of Child Entity class 
+
+
+
+--lete create CrudRepository for both classes:-
+
+
+EmployeeDao.java:-
+-----------------
+
+public interface EmployeeDao extends CrudRepository<Employee, Integer>{
+
+}
+
+
+DeptDao.java:-
+--------------
+
+public interface DeptDao extends CrudRepository<Dept,Integer>{
+
+	@Query("select e.name,d.dname from Dept d join d.emps e where e.salary>:sal")
+	public List<String[]> getAllEmpNames(int sal);		
+	
+}
+
+
+lets add a student in a perticular dept:-
+----------------------------------------
+	@Autowired
+	private EmployeeDao edao;
+	
+	@Autowired
+	private DeptDao ddao;
+		
+
+	@RequestMapping(value = "/register")
+	public String register() {
+		
+		
+		Optional<Dept> opt=ddao.findById(1003);
+		
+		Dept dept=opt.get();
+		
+		Employee e2=new Employee(15, "suresh", 8700, dept);
+		
+		
+		edao.save(e2);
+		
+		System.out.println("done..");
+		
+		
+		return "sucess";
+	}
+
+
+
+
+Normal many to one unidirectional and bidirectional
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
